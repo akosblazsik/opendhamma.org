@@ -4,6 +4,8 @@
 /admin/
 /.vscode/
 /docker/
+/backups/
+/.git/
 
 # email
 /email/
