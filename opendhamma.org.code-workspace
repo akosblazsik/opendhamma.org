@@ -1,0 +1,13 @@
+{
+	"folders": [
+		{
+			"path": "."
+		}
+	],
+	"settings": {
+		"files.associations": {
+			"*.sh": "shellscript"
+		},
+		"terminal.integrated.defaultProfile.linux": "bash"
+	}
+}
