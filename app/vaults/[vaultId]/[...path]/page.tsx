@@ -37,11 +37,14 @@ function VaultMarkdownRenderer({ markdownContent, vaultId, basePath: _basePath }
                     },
                     h1: ({ node: _node, ...props }) => <h1 className="text-3xl font-bold mt-6 mb-4 border-b pb-2 dark:border-darkborder" {...props} />,
                     h2: ({ node: _node, ...props }) => <h2 className="text-2xl font-semibold mt-5 mb-3" {...props} />,
-                    code: ({ node: _node, inline, className, children, ...props }) => {
+                    // Corrected code renderer - checks className instead of non-existent 'inline' prop
+                    code: ({ node: _node, className, children, ...props }) => {
                         const match = /language-(\w+)/.exec(className || '');
-                        return !inline ? (
+                        // If className contains language-*, it's a block code
+                        return match ? (
                             <pre className="bg-neutral-100 dark:bg-neutral-900 p-3 rounded overflow-x-auto my-4 border border-border dark:border-darkborder"><code className={`language-${match?.[1]} whitespace-pre-wrap`} {...props}>{children}</code></pre>
                         ) : (
+                            // Otherwise, it's inline code
                             <code className="bg-neutral-100 dark:bg-neutral-700 px-1 py-0.5 rounded text-sm font-mono" {...props}>{children}</code>
                         );
                     },
