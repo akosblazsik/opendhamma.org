@@ -1,6 +1,6 @@
 // app/app/settings/page.tsx
 import { getServerSession } from "next-auth/next" // Import v4 server session helper
-import { authOptions } from "@/app/api/auth/[...nextauth]/route"
+import { authOptions } from "@/lib/auth";
 import { AuthStatus, SignInButton } from "@/components/AuthButtons"; // Import SignInButton too
 
 export default async function SettingsPage() {
