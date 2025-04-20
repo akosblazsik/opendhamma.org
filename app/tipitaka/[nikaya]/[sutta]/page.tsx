@@ -80,8 +80,16 @@ function MarkdownRenderer({ markdownContent, vaultId, basePath: _basePath, nikay
 
 // --- Main Sutta Page Component ---
 // Use the type alias for props
-export default async function SuttaPage({ params /*, searchParams */ }: SuttaPageProps) {
-    const { nikaya, sutta } = params;
+// --- Main Sutta Page Component ---
+// Define types inline OR use the type alias below but NOT as SuttaPage({ params }: SuttaPageProps)
+export default async function SuttaPage({
+    params,
+    // searchParams // Include if needed
+}: { // Define the expected props shape inline
+    params: { nikaya: string; sutta: string };
+    searchParams?: { [key: string]: string | string[] | undefined };
+}) {
+    const { nikaya, sutta } = params; // Destructure params here
     // const session = await getServerSession(authOptions); // Fetch session if needed
 
     let defaultVault;
