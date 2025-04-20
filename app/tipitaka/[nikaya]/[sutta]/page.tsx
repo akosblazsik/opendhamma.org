@@ -1,44 +1,26 @@
-// app/tipitaka/[nikaya]/[sutta]/page.tsx
-
-import { getDefaultVault } from '@/lib/vaults';
-import { getFileContent, getDirectoryContent, GitHubFileContent, GitHubDirectoryContent } from '@/lib/github';
-// Remove unused imports if session is not needed on this page yet
-// import { authOptions } from "@/lib/auth";
-// import { getServerSession } from "next-auth/next";
+// app/vaults/[vaultId]/[...path]/page.tsx
+import { getVaultById } from '@/lib/vaults';
+import { getFileContent, getDirectoryContent, GitHubDirectoryContent, GitHubFileContent } from '@/lib/github';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import rehypeRaw from 'rehype-raw';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import { Github, AlertCircle } from 'lucide-react';
+import { FileText, Folder, Github, ArrowLeft, AlertCircle } from 'lucide-react';
 
-// Removed the explicit SuttaPageProps type alias as we use 'any' below
+// Remove explicit interface
 
-// Component to render Markdown with vault-aware links & typography
-// Prefix unused parameters with _ to satisfy ESLint if needed
-function MarkdownRenderer({ markdownContent, vaultId, basePath: _basePath, nikaya: _nikaya, sutta: _sutta }: { markdownContent: string, vaultId: string | null, basePath: string, nikaya: string, sutta: string }) {
-    // Corrected regex to match standard wiki links [[target]] or [[target|display]]
+// Reusable Markdown Renderer (similar to SuttaPage, could be extracted)
+// Prefix unused basePath with _ if ESLint complains, or remove if unneeded
+function VaultMarkdownRenderer({ markdownContent, vaultId, basePath: _basePath }: { markdownContent: string, vaultId: string, basePath: string }) {
     const processedMarkdown = markdownContent.replace(/\[\[([^\]|]+)(\|[^\]]+)?\]\]/g, (match, linkTarget, linkDisplay) => {
         const targetSlug = linkTarget.trim().replace(/ /g, '-').toLowerCase();
-        const targetPath = targetSlug.endsWith('.md') ? targetSlug : `${targetSlug}.md`; // Basic assumption
-        const display = linkDisplay ? linkDisplay.substring(1).trim() : linkTarget.trim(); // Trim display text too
-
-        // Improved link handling: Check if it looks like another sutta reference first
-        const suttaRegex = /([a-z]+)(\d+(\.\d+)?)/i;
-        const suttaMatch = linkTarget.match(suttaRegex);
-        if (suttaMatch && vaultId === getDefaultVault()?.id) {
-            const targetNikaya = suttaMatch[1].toLowerCase();
-            const targetSutta = linkTarget.toLowerCase(); // Use the whole match as identifier
-            return `[${display}](/tipitaka/${targetNikaya}/${targetSutta})`;
-        }
-
-        // Otherwise, link within the current vault (needs better pathing)
-        // return `[${display}](/vaults/${vaultId}/${_basePath ? _basePath + '/' : ''}${targetPath})`; // Example relative link using potentially unused var
-        return `[${display}](/vaults/${vaultId}/${targetPath})`; // Simpler link for now
+        const targetPath = targetSlug.endsWith('.md') ? targetSlug : `${targetSlug}.md`;
+        const display = linkDisplay ? linkDisplay.substring(1).trim() : linkTarget.trim();
+        return `[${display}](/vaults/${vaultId}/${targetPath})`;
     });
 
     return (
-        // Use prose class from @tailwindcss/typography for styling
         <div className="prose prose-neutral dark:prose-invert max-w-none prose-a:text-primary-600 dark:prose-a:text-primary-400 hover:prose-a:underline">
             <ReactMarkdown
                 remarkPlugins={[remarkGfm]}
@@ -50,7 +32,9 @@ function MarkdownRenderer({ markdownContent, vaultId, basePath: _basePath, nikay
                         }
                         return <a href={href} target="_blank" rel="noopener noreferrer">{children}</a>;
                     },
-                    code: ({ node: _node, inline, className, children, ...props }) => { // Prefix unused node with _
+                    h1: ({ node: _node, ...props }) => <h1 className="text-3xl font-bold mt-6 mb-4 border-b pb-2 dark:border-darkborder" {...props} />,
+                    h2: ({ node: _node, ...props }) => <h2 className="text-2xl font-semibold mt-5 mb-3" {...props} />,
+                    code: ({ node: _node, inline, className, children, ...props }) => {
                         const match = /language-(\w+)/.exec(className || '');
                         return !inline ? (
                             <pre className="bg-neutral-100 dark:bg-neutral-900 p-3 rounded overflow-x-auto my-4 border border-border dark:border-darkborder"><code className={`language-${match?.[1]} whitespace-pre-wrap`} {...props}>{children}</code></pre>
@@ -58,9 +42,6 @@ function MarkdownRenderer({ markdownContent, vaultId, basePath: _basePath, nikay
                             <code className="bg-neutral-100 dark:bg-neutral-700 px-1 py-0.5 rounded text-sm font-mono" {...props}>{children}</code>
                         );
                     },
-                    // Headings will be styled by prose, add overrides if needed
-                    // h1: ({node: _node, ...props}) => <h1 {...props} />,
-                    // h2: ({node: _node, ...props}) => <h2 {...props} />,
                 }}
             >
                 {processedMarkdown}
@@ -69,173 +50,168 @@ function MarkdownRenderer({ markdownContent, vaultId, basePath: _basePath, nikay
     );
 }
 
-// --- Main Sutta Page Component ---
+// Component to render a directory listing with better styling
+function DirectoryListing({ items, vaultId, currentPath }: { items: GitHubDirectoryContent[], vaultId: string, currentPath: string }) {
+    const sortedItems = [...items].sort((a, b) => {
+        if (a.type === 'dir' && b.type === 'file') return -1;
+        if (a.type === 'file' && b.type === 'dir') return 1;
+        return a.name.localeCompare(b.name);
+    });
+
+    const parentPath = currentPath.substring(0, currentPath.lastIndexOf('/'));
+    const showParentLink = currentPath !== '';
+
+    return (
+        <div className="border border-border dark:border-darkborder rounded-lg overflow-hidden">
+            <ul className="divide-y divide-border dark:divide-darkborder">
+                {/* Parent Directory Link */}
+                {showParentLink && (
+                    <li className="hover:bg-neutral-50 dark:hover:bg-neutral-800/50 transition-colors">
+                        <Link href={`/vaults/${vaultId}/${parentPath}`} className="flex items-center space-x-3 px-4 py-3 text-sm">
+                            <ArrowLeft size={18} className="text-neutral-500 flex-shrink-0" />
+                            <span className="font-medium text-neutral-600 dark:text-neutral-400">Parent Directory</span>
+                        </Link>
+                    </li>
+                )}
+                {/* Directory Items */}
+                {sortedItems.map(item => (
+                    <li key={item.sha} className="hover:bg-neutral-50 dark:hover:bg-neutral-800/50 transition-colors">
+                        <Link href={`/vaults/${vaultId}/${item.path}`} className="flex items-center space-x-3 px-4 py-3 text-sm">
+                            {item.type === 'dir'
+                                ? <Folder size={18} className="text-yellow-500 flex-shrink-0" />
+                                : <FileText size={18} className="text-primary-500 flex-shrink-0" />
+                            }
+                            <span className="flex-grow truncate font-medium text-foreground">{item.name}</span>
+                            {item.type === 'file' && <span className="text-xs text-neutral-500 flex-shrink-0">{(item.size / 1024).toFixed(1)} KB</span>}
+                        </Link>
+                    </li>
+                ))}
+            </ul>
+        </div>
+    );
+}
+
+
+// --- Main Page Component ---
 // Use 'any' as a TEMPORARY WORKAROUND for the props type error
-export default async function SuttaPage(props: any) {
+export default async function VaultPathPage(props: any) {
     // Destructure params - this should still work at runtime even with 'any' type
     // Add checks or default values if props or params might be undefined
     const params = props.params || {};
-    const { nikaya, sutta } = params;
+    const { vaultId, path: pathSegments } = params;
     // const searchParams = props.searchParams || {}; // If using searchParams
 
-    // Check if essential params are missing after destructuring (runtime check)
-    if (!nikaya || !sutta) {
-        console.error("Missing nikaya or sutta parameters in SuttaPage props:", props);
-        // Optionally return an error component or trigger notFound()
-        // return <div>Error: Missing required parameters.</div>;
+    // Runtime check for essential params
+    if (!vaultId) {
+        console.error("Missing vaultId parameter in VaultPathPage props:", props);
         notFound();
     }
 
+    const vault = getVaultById(vaultId);
 
-    // const session = await getServerSession(authOptions); // Fetch session if needed
-
-    let defaultVault;
-    let fileData: GitHubFileContent | null = null;
-    let availableFiles: GitHubDirectoryContent[] | null = null;
-    let loadedPath: string = '';
-    let errorMsg: string | null = null;
-
-    try {
-        defaultVault = getDefaultVault();
-        if (!defaultVault) {
-            throw new Error("Default vault not configured.");
-        }
-
-        // Adjust base path based on vault structure if needed
-        const basePath = `tipitaka/sutta/${nikaya.toLowerCase()}/${sutta.toLowerCase()}`;
-
-        // Fetch directory contents first to know available versions
-        availableFiles = await getDirectoryContent(defaultVault.repo, basePath);
-
-        if (availableFiles && availableFiles.length > 0) {
-            // Try preferred files
-            const preferredFileNames = [`en/curated.md`, `en/ai.md`, `pali.md`];
-            const fallbackFiles = availableFiles
-                .filter(f => f.type === 'file' && f.name.endsWith('.md') && !preferredFileNames.some(pref => f.path.endsWith(pref)))
-                .map(f => f.path);
-            const pathsToTry = [
-                ...preferredFileNames.map(name => `${basePath}/${name}`),
-                ...fallbackFiles
-            ];
-
-            for (const path of pathsToTry) {
-                const currentFileData = await getFileContent(defaultVault.repo, path);
-                if (currentFileData) {
-                    fileData = currentFileData;
-                    loadedPath = path;
-                    break;
-                }
-            }
-            if (!fileData) errorMsg = `Could not find a displayable Markdown version for ${sutta} in ${basePath}.`;
-
-        } else {
-            // Try direct file path as fallback
-            const directFilePath = `tipitaka/sutta/${nikaya.toLowerCase()}/${sutta.toLowerCase()}.md`;
-            fileData = await getFileContent(defaultVault.repo, directFilePath);
-            if (fileData) {
-                loadedPath = directFilePath;
-            } else {
-                // If directory and direct file fail, trigger 404
-                notFound();
-            }
-        }
-
-    } catch (error: any) {
-        console.error(`Error fetching sutta ${nikaya}/${sutta}:`, error);
-        errorMsg = `Error loading sutta data: ${error.message}`;
-        if (error.status === 404) notFound(); // Ensure 404 is triggered on explicit 404
-        if (!defaultVault) defaultVault = getDefaultVault(); // Try getting vault info for error display
+    if (!vault) {
+        notFound(); // Vault not found in registry
     }
 
+    const requestedPath = pathSegments?.join('/') || ''; // Join path segments or use empty string for root
+    let fileData: GitHubFileContent | null = null;
+    let dirData: GitHubDirectoryContent[] | null = null;
+    let errorMsg: string | null = null;
+    let resourceUrl: string | null = null; // URL to the GitHub resource
+
+    try {
+        // Try fetching as a file first (more specific)
+        fileData = await getFileContent(vault.repo, requestedPath);
+
+        if (fileData) {
+            resourceUrl = fileData.html_url;
+        } else {
+            // If not a file, try fetching as a directory
+            dirData = await getDirectoryContent(vault.repo, requestedPath);
+            if (!dirData) {
+                // If neither file nor directory found after trying both
+                notFound();
+            } else {
+                // Construct GitHub directory URL (approximated)
+                resourceUrl = `https://github.com/${vault.repo}/tree/main/${requestedPath}`; // Assumes 'main' branch
+            }
+        }
+    } catch (error: any) {
+        console.error(`Error fetching vault content for ${vaultId}/${requestedPath}:`, error);
+        if (error.status === 404) {
+            notFound(); // Explicit 404 from GitHub API
+        }
+        // Handle other potential errors (rate limits, permissions, etc.)
+        errorMsg = `Error loading content from GitHub: ${error.message}. Please check permissions and rate limits.`;
+        // We already checked vault exists, so no need to refetch here for error display
+    }
+
+    // Define basePath here, used only by VaultMarkdownRenderer if needed
+    const basePath = requestedPath.includes('/') ? requestedPath.substring(0, requestedPath.lastIndexOf('/')) : '';
+    const pageTitle = fileData ? fileData.name : `/${requestedPath || vault.name}`; // Display file name or path
+
     // Render Error State
-    if (errorMsg && !fileData) { // Show error only if no file data was loaded
+    if (errorMsg) {
         return (
             <div className="p-6 md:p-8 rounded-lg border border-red-300 bg-red-50 dark:border-red-700 dark:bg-red-900/30 shadow">
                 <div className="flex items-center space-x-3 mb-4">
                     <AlertCircle className="text-red-500 dark:text-red-400" size={24} />
-                    <h1 className="text-xl font-semibold text-red-700 dark:text-red-300">Error Loading Sutta</h1>
+                    <h1 className="text-xl font-semibold text-red-700 dark:text-red-300">Error Loading Content</h1>
                 </div>
                 <p className="text-red-600 dark:text-red-200 mb-2">{errorMsg}</p>
-                {defaultVault && <p className="text-sm text-neutral-500 dark:text-neutral-400">Vault: {defaultVault.name} ({defaultVault.repo})</p>}
-                <p className="text-sm text-neutral-500 dark:text-neutral-400">Path Attempted: `tipitaka/sutta/{nikaya}/{sutta}/...`</p>
+                <p className="text-sm text-neutral-500 dark:text-neutral-400">Vault: {vault.name} ({vault.repo})</p>
+                <p className="text-sm text-neutral-500 dark:text-neutral-400">Path: /{requestedPath}</p>
             </div>
-        );
+        )
     }
 
-    // Safeguard: Should be caught by notFound() earlier, but ensures fileData exists
-    if (!fileData) {
-        notFound();
-    }
-
-    // Render Sutta Content
-    const lang = fileData.data?.lang || loadedPath.split('/').find(seg => ['en', 'pi'].includes(seg)) || 'unknown';
-    const otherVersions = availableFiles
-        ? availableFiles.filter(f => f.type === 'file' && f.path !== loadedPath && f.name.endsWith('.md'))
-        : [];
-    // Correctly define suttaBasePath based on loadedPath
-    const suttaBasePath = loadedPath.includes('/') ? loadedPath.substring(0, loadedPath.lastIndexOf('/')) : '';
-
-
+    // Render Normal Page (File or Directory)
     return (
         <div className="bg-white dark:bg-neutral-800/50 p-4 sm:p-6 md:p-8 rounded-lg shadow border border-border dark:border-darkborder">
             {/* Header */}
             <div className="mb-6 pb-4 border-b border-border dark:border-darkborder flex justify-between items-center flex-wrap gap-2">
-                <div>
-                    {fileData.data?.title && <h1 className="text-2xl sm:text-3xl font-bold text-foreground">{fileData.data.title}</h1>}
-                    <p className="text-lg text-neutral-600 dark:text-neutral-400 capitalize">{sutta} ({nikaya.toUpperCase()}) - [{lang.toUpperCase()}]</p>
-                </div>
-                <a href={fileData.html_url} target="_blank" rel="noopener noreferrer" title="View source on GitHub"
-                    className="inline-flex items-center space-x-1.5 text-xs px-3 py-1.5 rounded-md bg-neutral-100 dark:bg-neutral-700 text-neutral-700 dark:text-neutral-300 hover:bg-neutral-200 dark:hover:bg-neutral-600 transition-colors">
-                    <Github size={14} />
-                    <span>View Source</span>
-                </a>
+                <h1 className="text-xl sm:text-2xl font-bold text-foreground break-all">
+                    {pageTitle}
+                </h1>
+                {resourceUrl && (
+                    <a href={resourceUrl} target="_blank" rel="noopener noreferrer" title="View on GitHub"
+                        className="inline-flex items-center space-x-1.5 text-xs px-3 py-1.5 rounded-md bg-neutral-100 dark:bg-neutral-700 text-neutral-700 dark:text-neutral-300 hover:bg-neutral-200 dark:hover:bg-neutral-600 transition-colors">
+                        <Github size={14} />
+                        <span>View on GitHub</span>
+                    </a>
+                )}
             </div>
 
-            {/* Frontmatter */}
-            {Object.keys(fileData.data).length > 0 && (
-                <details className="mb-6 p-3 border border-border dark:border-darkborder rounded bg-neutral-50 dark:bg-neutral-900/50 text-xs cursor-pointer group">
-                    <summary className="font-semibold text-sm list-none select-none flex justify-between items-center">
-                        <span>Document Info</span>
-                        <span className="text-neutral-400 transition-transform duration-200 ease-out group-open:rotate-90">▼</span>
-                    </summary>
-                    <div className="mt-2 space-y-1 text-neutral-600 dark:text-neutral-400">
-                        {fileData.data.translator && <p><strong>Translator:</strong> {fileData.data.translator}</p>}
-                        {fileData.data.source && <p><strong>Source:</strong> {fileData.data.source}</p>}
-                        {fileData.data.status && <p><strong>Status:</strong> <span className="capitalize">{fileData.data.status}</span></p>}
-                        {fileData.data.version && <p><strong>Version:</strong> {fileData.data.version}</p>}
-                        {fileData.data.reviewed_by && Array.isArray(fileData.data.reviewed_by) && fileData.data.reviewed_by.length > 0 && (
-                            <p><strong>Reviewed By:</strong> {fileData.data.reviewed_by.join(', ')}</p>
+            {/* Content Area */}
+            <div>
+                {/* Render File Content */}
+                {fileData && (
+                    <>
+                        {Object.keys(fileData.data).length > 0 && (
+                            <details className="mb-6 p-3 border border-border dark:border-darkborder rounded bg-neutral-50 dark:bg-neutral-900/50 text-xs cursor-pointer group">
+                                <summary className="font-semibold text-sm list-none select-none flex justify-between items-center">
+                                    <span>View Frontmatter</span>
+                                    <span className="text-neutral-400 transition-transform duration-200 ease-out group-open:rotate-90">▼</span>
+                                </summary>
+                                <pre className="mt-2 overflow-x-auto whitespace-pre-wrap text-neutral-600 dark:text-neutral-400">{JSON.stringify(fileData.data, null, 2)}</pre>
+                            </details>
                         )}
-                    </div>
-                </details>
-            )}
 
-            {/* Main Content */}
-            {/* Pass the correct props to MarkdownRenderer */}
-            <MarkdownRenderer markdownContent={fileData.content} vaultId={defaultVault?.id || null} basePath={suttaBasePath} nikaya={nikaya} sutta={sutta} />
+                        {requestedPath.endsWith('.md') ? (
+                            <VaultMarkdownRenderer markdownContent={fileData.content} vaultId={vaultId} basePath={basePath} />
+                        ) : (
+                            <pre className="bg-neutral-100 dark:bg-neutral-900 p-4 rounded text-sm overflow-x-auto whitespace-pre-wrap border border-border dark:border-darkborder">
+                                {fileData.content}
+                            </pre>
+                        )}
+                    </>
+                )}
 
-
-            {/* Other Versions (Placeholder UI) */}
-            {otherVersions.length > 0 && (
-                <div className="mt-8 pt-4 border-t border-border dark:border-darkborder">
-                    <h4 className="font-semibold mb-2 text-foreground">Other Available Versions:</h4>
-                    <ul className="list-disc list-inside text-sm space-y-1">
-                        {otherVersions.map(version => {
-                            const versionLang = version.path.split('/').find(seg => ['en', 'pi'].includes(seg));
-                            const versionName = version.name.replace('.md', '');
-                            // TODO: Implement actual version switching (e.g., via query params + state management)
-                            return (
-                                <li key={version.path} className="text-neutral-700 dark:text-neutral-300">
-                                    {versionName} ({versionLang || 'unknown'}) -
-                                    <a href={version.html_url} target="_blank" rel="noopener noreferrer" className="ml-2 text-xs text-primary-600 dark:text-primary-400 hover:underline">(Source)</a>
-                                    {/* Placeholder link - needs functionality */}
-                                    {/* <Link href={`/tipitaka/${nikaya}/${sutta}?version=${encodeURIComponent(version.path)}`} className="ml-2 text-xs">(Load)</Link> */}
-                                </li>
-                            );
-                        })}
-                    </ul>
-                </div>
-            )}
+                {/* Render Directory Listing */}
+                {dirData && (
+                    <DirectoryListing items={dirData} vaultId={vaultId} currentPath={requestedPath} />
+                )}
+            </div>
         </div>
     );
 }
