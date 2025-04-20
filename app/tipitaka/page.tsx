@@ -71,13 +71,13 @@ export default async function TipitakaHomePage() {
                 // Show this message if nikayas is null (error during fetch) or empty, but only if there wasn't a preceding error message
                 !errorMessage && defaultVault && (
                     <p className="text-gray-500 dark:text-gray-400">
-                        Could not load Nikaya listing. The 'tipitaka' directory might be empty or missing in the default vault (`{defaultVault?.repo}`).
+                        Could not load Nikaya listing. The tipitaka directory might be empty or missing in the default vault (`{defaultVault?.repo}`).
                     </p>
                 )
             )}
 
             {/* Add search functionality placeholder later */}
-            {/* <div className="mt-8">Search Component Placeholder</div> */}
+            {<div className="mt-8">Search Component Placeholder</div>}
 
         </div> // Closing root JSX element
     );
