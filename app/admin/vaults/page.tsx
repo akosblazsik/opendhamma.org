@@ -1,6 +1,7 @@
 // app/admin/vaults/page.tsx
 import { getVaultRegistry } from "@/lib/vaults";
-import { auth } from "@/app/api/auth/[...nextauth]/route";
+import { getServerSession } from "next-auth/next";
+import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { Github } from "lucide-react";
@@ -12,7 +13,7 @@ async function isAdmin(session: any): Promise<boolean> {
 }
 
 export default async function VaultAdminPage() {
-    const session = await auth();
+    const session = await getServerSession(authOptions);
     if (!session || !(await isAdmin(session))) {
         redirect('/');
     }
