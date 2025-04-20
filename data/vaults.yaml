@@ -1,0 +1,42 @@
+# data/vaults.yaml
+# This file acts as the central registry for known Opendhamma vaults.
+# Default vaults are used for routes like /tipitaka.
+# Users can potentially add their own vaults (via GitHub app integration or manual config later).
+
+- id: opendhamma-vault
+  name: Opendhamma Core Vault
+  # IMPORTANT: Replace with the actual repository path you want to use as default
+  repo: opendhamma/opendhamma-vault-example # Placeholder repo - CHANGE THIS
+  default: true
+  topics:
+    - buddhism
+    - pali-canon
+    - tipitaka
+    - sutta
+  languages:
+    - en
+    - pi # Pali ISO 639-2 code
+  readonly: false # Indicates if the app can offer write operations (PRs) - future feature
+
+- id: personal-notes-example
+  name: Example Personal Knowledge Vault
+  # IMPORTANT: Replace with a real repository path if you want to test this
+  repo: your-username/your-dharma-notes-repo # Placeholder repo - CHANGE THIS
+  default: false
+  topics:
+    - personal
+    - dharma
+    - notes
+  languages:
+    - en
+  readonly: false
+
+# Add more canonical or community vaults here as needed
+# e.g.,
+# - id: suttacentral-data
+#   name: SuttaCentral Data (Readonly Mirror)
+#   repo: suttacentral/bilara-data # Example, structure might need adaptation for this app
+#   default: false
+#   topics: [tipitaka, pali-canon, translation, community]
+#   languages: [en, pi, de, es, fr, ...] # Extensive list
+#   readonly: true

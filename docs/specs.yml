@@ -1,0 +1,232 @@
+app:
+  name: Opendhamma
+  tagline: AI-enhanced wisdom architecture
+  purpose: >
+    Opendhamma is a next-generation, GitHub-native knowledge and translation system
+    for dharmic teachings. It blends canonical Buddhist texts, AI-assisted multilingual
+    tools, and community-curated content into a living ecosystem of insight.
+  vision: >
+    To modernize and actualize the transmission of Buddhist wisdom, making it globally
+    accessible, interactive, and personally meaningful — while maintaining philosophical
+    and linguistic rigor.
+
+architecture:
+  type: monorepo
+  frontend: Next.js 15.3+ App Router
+  backend: Serverless / API routes (Vercel + GitHub API)
+  deployment: Vercel (automatic)
+  github_native: true
+  content_storage: GitHub repositories
+  vault_registry: /data/vaults.yaml (within app repo)
+  default_vault: opendhamma-vault
+  dynamic_routing: true
+  routes:
+    app_root: opendhamma.org/app
+    public_tipitaka: opendhamma.org/tipitaka
+    user_settings: opendhamma.org/app/settings
+    translate: opendhamma.org/app/translate
+    curate: opendhamma.org/app/curate
+
+vaults:
+  default_vault_id: opendhamma-vault
+  storage_model: github_repository
+  content_format: markdown_with_yaml_frontmatter
+  allowed_filetypes: [.md, .yaml, .json]
+  canonical_structure:
+    tipitaka:
+      sutta/sn/sn56-11:
+        - pali.md
+        - en/ai.md
+        - en/curated.md (curated opendhamma translation)
+        - en/bhikkhu-bodhi.md (bhikkhu bodhi translation)
+        - notes.yaml
+  vault_registry:
+    file: /data/vaults.yaml
+    schema:
+      - id: string
+        name: string
+        repo: string
+        default: boolean
+        topics: [string]
+        languages: [string]
+        readonly: boolean
+  user_vaults:
+    model: github-native
+    registration: manual or automated via UI
+    metadata: vault.yaml per vault root
+
+routes:
+  - path: /
+    description: Landing page, philosophy, call to explore
+    component: HomePage
+
+  - path: /tipitaka/[nikaya]/[sutta]
+    description: Canonical Tipitaka viewer using the default vault
+    component: SuttaPage
+
+  - path: /vaults/[vaultId]/[...path]
+    description: Dynamic loader for any GitHub vault file
+    component: VaultPage
+
+  - path: /admin
+    description: Admin dashboard
+    component: AdminLayout
+
+  - path: /admin/vaults
+    description: Vault manager — list, set default, link new vaults
+    component: VaultAdminPage
+
+  - path: /app/settings
+    description: User settings and preferences management
+    component: SettingsPage
+
+  - path: /app/translate/[sutta]/[lang]
+    description: Translation editor UI (AI-assisted, human-refined)
+    component: TranslationEditor
+
+  - path: /app/curate/[sutta]/[lang]
+    description: Curator review interface for translations
+    component: CuratorPanel
+
+  - path: /app/ai-lab
+    description: AI-powered insight tools for dharmic analysis
+    component: AILabPage
+
+features:
+  canonical_text_browsing: true
+  multilingual_translation:
+    ai_generated: true
+    human_curation: true
+    side_by_side_view: true
+  vault_integration:
+    external_repos: true
+    private_vault_support: true
+    registry_discovery: true
+  markdown_rendering:
+    toc: true
+    footnotes: true
+    glossary_tooltips: planned
+  note_system:
+    inline_annotations: true
+    scholar_notes: true
+    comment_threads: planned
+  search_and_indexing:
+    nikaya_structure: true
+    keyword_search: planned
+    tag-based discovery: planned
+  versioning:
+    github_commit_history: native
+    change_log_display: planned
+  admin_tools:
+    default_vault_selector: true
+    dynamic routing control: true
+    metadata viewer/editor: planned
+
+content_model:
+  structure: "vault based, path-routed"
+  format: markdown_with_frontmatter
+  frontmatter_schema:
+    id: string
+    title: string
+    lang: string
+    source: string
+    translator: string
+    version: string
+    reviewed_by: [string]
+    status: draft | in_review | published
+  example:
+    file: sn56-11/en/curated.md
+    content: |
+      ---
+      title: Dhammacakkappavattana Sutta
+      lang: en
+      translator: bhikkhu_bodhi
+      reviewed_by: [akos]
+      version: 1.0
+      status: published
+      ---
+      Thus have I heard...
+
+ai:
+  provider: openai
+  gpt_model: gpt-4
+  fallback: claude or grok (future)
+  functions:
+    - translation_draft_generation
+    - line-by-line explanation
+    - glossary annotation
+    - parallel comparison
+    - prompt-based insights
+  pipeline:
+    1: user initiates AI draft
+    2: AI response shown
+    3: user edits/refines
+    4: saved as PR or commit
+
+integrations:
+  github:
+    auth: GitHub OAuth (NextAuth.js)
+    api: GitHub Content API v3
+    rate_limited: yes
+  deployment:
+    provider: Vercel
+    preview_urls: true
+    environment_vars:
+      - GITHUB_TOKEN
+      - VAULT_REGISTRY_PATH
+  editor:
+    mdx_editor: planned
+    prose_mirror: planned
+    github.dev integration: planned
+
+user_roles:
+  guest:
+    can:
+      - browse vaults
+      - read canonical texts
+      - explore translations
+  contributor:
+    can:
+      - propose translations
+      - annotate content
+      - fork vaults
+      - submit PRs
+  curator:
+    can:
+      - review contributions
+      - approve/decline PRs
+      - edit metadata
+  admin:
+    can:
+      - set default vault
+      - edit vault registry
+      - manage integrations
+      - deploy or rebuild app
+
+auth:
+  provider: GitHub OAuth (NextAuth.js)
+  token_storage: JWT
+  vault_access:
+    public: default
+    private: per OAuth scope
+
+testing:
+  strategies:
+    - preview deploys via Vercel PRs
+    - markdown structure linter
+    - AI output verifier (planned)
+  deployment:
+    platform: Vercel
+    triggers:
+      - git push to main
+      - change to vaults.yaml
+    webhooks: planned for external repo sync
+
+license:
+  type: MIT or CC-BY-SA 4.0 (for content)
+  repo_code: MIT
+  vault_content: default public domain
+  notes:
+    - Canonical 6CE texts are public domain
+    - Translations may require author attribution
+    - Community contributions licensed under same or permissive model
