@@ -5,24 +5,20 @@ import matter from 'gray-matter'; // For parsing YAML frontmatter
 
 // Initialize Octokit
 // Use GITHUB_TOKEN from environment variables for authentication
-// This token needs appropriate permissions (e.g., 'repo' or at least 'public_repo')
 const octokit = new Octokit({
     auth: process.env.GITHUB_TOKEN,
-    // Optional: Add user agent
     userAgent: 'OpendhammaApp/v0.1',
-    // Optional: Add logging for debugging
-    // log: console,
 });
 
 // Interface for parsed file content including frontmatter
 export interface GitHubFileContent {
-    content: string; // Markdown/file content (without frontmatter)
-    data: { [key: string]: any }; // Parsed frontmatter data
-    sha: string; // Git blob SHA
-    path: string; // Full path within the repository
-    name: string; // File name
-    html_url: string; // URL to view the file on GitHub.com
-    size: number; // File size in bytes
+    content: string;
+    data: { [key: string]: any };
+    sha: string;
+    path: string;
+    name: string;
+    html_url: string; // Expecting string
+    size: number;
 }
 
 // Interface for items listed in a directory
@@ -32,9 +28,9 @@ export interface GitHubDirectoryContent {
     path: string;
     sha: string;
     size: number;
-    url: string; // API URL for the content
-    html_url: string; // GitHub web URL
-    download_url: string | null; // URL for raw download (files only)
+    url: string;
+    html_url: string; // Expecting string
+    download_url: string | null;
 }
 
 // Helper to parse 'owner/repo' string
@@ -50,30 +46,23 @@ const parseRepoString = (repoString: string): { owner: string; repo: string } =>
 export async function getFileContent(
     repoString: string,
     filePath: string,
-    ref?: string // Optional branch, tag, or commit SHA
+    ref?: string
 ): Promise<GitHubFileContent | null> {
     try {
         const { owner, repo } = parseRepoString(repoString);
-        // console.log(`Fetching file: ${owner}/${repo}/${filePath}` + (ref ? ` @ ${ref}` : ''));
-
         const response = await octokit.repos.getContent({
             owner,
             repo,
             path: filePath,
-            ref: ref, // Use default branch if ref is undefined
-            // No mediaType needed, default response includes necessary info including 'content'
+            ref: ref,
         });
 
-        // Check if the response is for a file
         if (Array.isArray(response.data) || response.data.type !== 'file' || !response.data.content) {
             console.warn(`Content at ${filePath} in ${repoString} is not a file or content is missing.`);
             return null;
         }
 
-        // Decode the Base64 encoded content
         const decodedContent = Buffer.from(response.data.content, 'base64').toString('utf8');
-
-        // Use gray-matter to parse frontmatter (if any)
         const { content: mainContent, data: frontmatterData } = matter(decodedContent);
 
         return {
@@ -82,18 +71,17 @@ export async function getFileContent(
             sha: response.data.sha,
             path: response.data.path,
             name: response.data.name,
-            html_url: response.data.html_url,
+            // Ensure html_url is string, provide fallback if null/undefined
+            html_url: response.data.html_url ?? '',
             size: response.data.size,
         };
 
     } catch (error: any) {
         if (error.status === 404) {
-            // console.log(`File not found: ${filePath} in ${repoString}`);
-            return null; // Handle file not found gracefully
+            return null;
         }
         console.error(`Error fetching file content from GitHub (${repoString}/${filePath}):`, error.status, error.message);
-        // Rethrow or handle other errors (e.g., rate limiting, auth issues)
-        throw error; // Rethrow to be caught by the page component
+        throw error;
     }
 }
 
@@ -101,13 +89,11 @@ export async function getFileContent(
 // Function to fetch directory contents from GitHub
 export async function getDirectoryContent(
     repoString: string,
-    dirPath: string = '', // Empty string for repository root
+    dirPath: string = '',
     ref?: string
 ): Promise<GitHubDirectoryContent[] | null> {
     try {
         const { owner, repo } = parseRepoString(repoString);
-        // console.log(`Fetching directory: ${owner}/${repo}/${dirPath}` + (ref ? ` @ ${ref}` : ''));
-
         const response = await octokit.repos.getContent({
             owner,
             repo,
@@ -115,7 +101,6 @@ export async function getDirectoryContent(
             ref: ref,
         });
 
-        // Ensure the response is an array (indicating a directory listing)
         if (!Array.isArray(response.data)) {
             console.warn(`Content at ${dirPath} in ${repoString} is not a directory.`);
             return null;
@@ -129,21 +114,16 @@ export async function getDirectoryContent(
             sha: item.sha,
             size: item.size,
             url: item.url,
-            html_url: item.html_url,
+            // **CORRECTION APPLIED HERE**: Ensure html_url is string for the interface
+            html_url: item.html_url ?? '', // Provide fallback if null/undefined
             download_url: item.download_url || null,
         }));
 
     } catch (error: any) {
         if (error.status === 404) {
-            // console.log(`Directory not found: ${dirPath} in ${repoString}`);
-            return null; // Handle directory not found gracefully
+            return null;
         }
         console.error(`Error fetching directory content from GitHub (${repoString}/${dirPath}):`, error.status, error.message);
-        throw error; // Rethrow for page component to handle
+        throw error;
     }
 }
-
-// Potential future functions:
-// - getFileMetadata: Fetch only metadata without content (faster if content not needed)
-// - createFileOrUpdate: Create/update file content (requires write permissions/different auth flow)
-// - createPullRequest: For suggesting changes
