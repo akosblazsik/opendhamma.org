@@ -1,22 +1,22 @@
 // app/admin/page.tsx
 import Link from "next/link";
-import { getServerSession } from "next-auth/next";
-import { authOptions } from "@/app/api/auth/[...nextauth]/route";
+import { getServerSession } from "next-auth/next"; // Import v4 server session helper
+import { authOptions } from "@/lib/auth";        // Import the options object from lib
 import { redirect } from "next/navigation";
 
 // Basic admin check - replace with actual role-based logic later
 async function isAdmin(session: any): Promise<boolean> {
     // Example: Check if user email matches a list of admin emails
     const adminEmails = (process.env.ADMIN_EMAILS || "").split(',');
-    return session?.user?.email && adminEmails.includes(session.user.email);
+    // Use optional chaining for safety
+    return session?.user?.email ? adminEmails.includes(session.user.email) : false;
 }
 
 export default async function AdminDashboardPage() {
-    const session = await getServerSession(authOptions);
+    const session = await getServerSession(authOptions); // Use v4 helper with imported options
 
     if (!session || !(await isAdmin(session))) {
         // Redirect non-admins or unauthenticated users
-        // Alternatively, show an "Access Denied" message
         redirect('/'); // Redirect to home page for now
     }
 

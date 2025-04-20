@@ -1,19 +1,19 @@
 // app/admin/vaults/page.tsx
 import { getVaultRegistry } from "@/lib/vaults";
-import { getServerSession } from "next-auth/next";
-import { authOptions } from "@/app/api/auth/[...nextauth]/route";
+import { getServerSession } from "next-auth/next"; // Import v4 server session helper
+import { authOptions } from "@/lib/auth";        // Import the options object from lib
 import { redirect } from "next/navigation";
-import Link from "next/link";
+// Removed unused Link import
 import { Github } from "lucide-react";
 
 // Reuse or import admin check logic
 async function isAdmin(session: any): Promise<boolean> {
     const adminEmails = (process.env.ADMIN_EMAILS || "").split(',');
-    return session?.user?.email && adminEmails.includes(session.user.email);
+    return session?.user?.email ? adminEmails.includes(session.user.email) : false;
 }
 
 export default async function VaultAdminPage() {
-    const session = await getServerSession(authOptions);
+    const session = await getServerSession(authOptions); // Use v4 helper with imported options
     if (!session || !(await isAdmin(session))) {
         redirect('/');
     }
