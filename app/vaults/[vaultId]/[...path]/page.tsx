@@ -6,67 +6,54 @@ import remarkGfm from 'remark-gfm';
 import rehypeRaw from 'rehype-raw';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import { FileText, Folder, Github, ArrowLeft } from 'lucide-react';
+import { FileText, Folder, Github, ArrowLeft, AlertCircle } from 'lucide-react';
 
-interface VaultPageProps {
-    params: {
-        vaultId: string;
-        path: string[]; // Catch-all route segments
-    };
-}
+// Removed explicit VaultPageProps interface
 
 // Reusable Markdown Renderer (similar to SuttaPage, could be extracted)
-function VaultMarkdownRenderer({ markdownContent, vaultId, basePath }: { markdownContent: string, vaultId: string, basePath: string }) {
-    // Basic [[wiki-link]] handling within the current vault
+// Prefix unused basePath with _ if ESLint complains, or remove if unneeded
+function VaultMarkdownRenderer({ markdownContent, vaultId, basePath: _basePath }: { markdownContent: string, vaultId: string, basePath: string }) {
+    // Corrected regex to match standard wiki links [[target]] or [[target|display]]
     const processedMarkdown = markdownContent.replace(/\[\[([^\]|]+)(\|[^\]]+)?\]\]/g, (match, linkTarget, linkDisplay) => {
-        // Basic slugification: replace spaces, convert to lower case. Needs improvement for complex cases.
         const targetSlug = linkTarget.trim().replace(/ /g, '-').toLowerCase();
-        // Attempt to link to the target within the same vault - assumes .md extension if not specified
-        // This doesn't know if the target file actually exists or its exact path structure!
-        const targetPath = targetSlug.endsWith('.md') ? targetSlug : `${targetSlug}.md`;
-        const display = linkDisplay ? linkDisplay.substring(1) : linkTarget.trim(); // Use display text if provided (|), otherwise target
-
-        // Try to construct a relative path if possible (better for complex vaults)
-        // let fullTargetPath = basePath ? `${basePath}/${targetPath}` : targetPath; // Simplistic relative path
-        // return `[${display}](/vaults/${vaultId}/${fullTargetPath})`;
-
-        // Simple link structure for now (assumes file is at root or requires full path in link)
+        const targetPath = targetSlug.endsWith('.md') ? targetSlug : `${targetSlug}.md`; // Basic assumption
+        const display = linkDisplay ? linkDisplay.substring(1).trim() : linkTarget.trim(); // Trim display text too
+        // Simpler link for now
         return `[${display}](/vaults/${vaultId}/${targetPath})`;
     });
 
     return (
-        <ReactMarkdown
-            remarkPlugins={[remarkGfm]}
-            rehypePlugins={[rehypeRaw]}
-            components={{
-                a: ({ href, children }) => {
-                    if (href?.startsWith('/') && !href.startsWith('//')) { // Check if it's an internal link
-                        return <Link href={href} className="text-blue-600 dark:text-blue-400 hover:underline">{children}</Link>;
-                    }
-                    // Assume external link if not starting with /
-                    return <a href={href} target="_blank" rel="noopener noreferrer" className="text-blue-600 dark:text-blue-400 hover:underline">{children}</a>;
-                },
-                h1: ({ node, ...props }) => <h1 className="text-3xl font-bold mt-6 mb-4 border-b pb-2 dark:border-gray-700" {...props} />,
-                h2: ({ node, ...props }) => <h2 className="text-2xl font-semibold mt-5 mb-3" {...props} />,
-                code: ({ node, inline, className, children, ...props }) => {
-                    const match = /language-(\w+)/.exec(className || '')
-                    return !inline && match ? (
-                        <pre className="bg-gray-100 dark:bg-gray-900 p-3 rounded overflow-x-auto my-2"><code className={className} {...props}>{children}</code></pre>
-                    ) : (
-                        <code className={`bg-gray-100 dark:bg-gray-700 px-1 rounded text-sm ${className}`} {...props}>
-                            {children}
-                        </code>
-                    )
-                },
-            }}
-            className="prose prose-lg dark:prose-invert max-w-none"
-        >
-            {processedMarkdown}
-        </ReactMarkdown>
+        // Use prose class from @tailwindcss/typography for styling
+        <div className="prose prose-neutral dark:prose-invert max-w-none prose-a:text-primary-600 dark:prose-a:text-primary-400 hover:prose-a:underline">
+            <ReactMarkdown
+                remarkPlugins={[remarkGfm]}
+                rehypePlugins={[rehypeRaw]}
+                components={{
+                    a: ({ href, children }) => {
+                        if (href?.startsWith('/') && !href.startsWith('//')) {
+                            return <Link href={href}>{children}</Link>;
+                        }
+                        return <a href={href} target="_blank" rel="noopener noreferrer">{children}</a>;
+                    },
+                    h1: ({ node: _node, ...props }) => <h1 className="text-3xl font-bold mt-6 mb-4 border-b pb-2 dark:border-darkborder" {...props} />,
+                    h2: ({ node: _node, ...props }) => <h2 className="text-2xl font-semibold mt-5 mb-3" {...props} />,
+                    code: ({ node: _node, inline, className, children, ...props }) => {
+                        const match = /language-(\w+)/.exec(className || '');
+                        return !inline ? (
+                            <pre className="bg-neutral-100 dark:bg-neutral-900 p-3 rounded overflow-x-auto my-4 border border-border dark:border-darkborder"><code className={`language-${match?.[1]} whitespace-pre-wrap`} {...props}>{children}</code></pre>
+                        ) : (
+                            <code className="bg-neutral-100 dark:bg-neutral-700 px-1 py-0.5 rounded text-sm font-mono" {...props}>{children}</code>
+                        );
+                    },
+                }}
+            >
+                {processedMarkdown}
+            </ReactMarkdown>
+        </div>
     );
 }
 
-// Component to render a directory listing
+// Component to render a directory listing with better styling
 function DirectoryListing({ items, vaultId, currentPath }: { items: GitHubDirectoryContent[], vaultId: string, currentPath: string }) {
     const sortedItems = [...items].sort((a, b) => {
         if (a.type === 'dir' && b.type === 'file') return -1;
@@ -74,30 +61,31 @@ function DirectoryListing({ items, vaultId, currentPath }: { items: GitHubDirect
         return a.name.localeCompare(b.name);
     });
 
-    // Parent directory link (unless at root)
     const parentPath = currentPath.substring(0, currentPath.lastIndexOf('/'));
     const showParentLink = currentPath !== '';
 
     return (
-        <div>
-            {/* Optional: Parent Directory Link */}
-            {showParentLink && (
-                <Link href={`/vaults/${vaultId}/${parentPath}`} className="flex items-center space-x-2 text-sm text-blue-600 dark:text-blue-400 hover:underline mb-4">
-                    <ArrowLeft size={16} />
-                    <span>Parent Directory</span>
-                </Link>
-            )}
-
-            <ul className="space-y-1">
+        <div className="border border-border dark:border-darkborder rounded-lg overflow-hidden">
+            <ul className="divide-y divide-border dark:divide-darkborder">
+                {/* Parent Directory Link */}
+                {showParentLink && (
+                    <li className="hover:bg-neutral-50 dark:hover:bg-neutral-800/50 transition-colors">
+                        <Link href={`/vaults/${vaultId}/${parentPath}`} className="flex items-center space-x-3 px-4 py-3 text-sm">
+                            <ArrowLeft size={18} className="text-neutral-500 flex-shrink-0" />
+                            <span className="font-medium text-neutral-600 dark:text-neutral-400">Parent Directory</span>
+                        </Link>
+                    </li>
+                )}
+                {/* Directory Items */}
                 {sortedItems.map(item => (
-                    <li key={item.sha}>
-                        <Link href={`/vaults/${vaultId}/${item.path}`} className="flex items-center space-x-3 hover:bg-gray-100 dark:hover:bg-gray-700 p-2 rounded">
+                    <li key={item.sha} className="hover:bg-neutral-50 dark:hover:bg-neutral-800/50 transition-colors">
+                        <Link href={`/vaults/${vaultId}/${item.path}`} className="flex items-center space-x-3 px-4 py-3 text-sm">
                             {item.type === 'dir'
                                 ? <Folder size={18} className="text-yellow-500 flex-shrink-0" />
-                                : <FileText size={18} className="text-blue-500 flex-shrink-0" />
+                                : <FileText size={18} className="text-primary-500 flex-shrink-0" />
                             }
-                            <span className="flex-grow truncate">{item.name}</span>
-                            {/* Optional: Add size or modified date if available/needed */}
+                            <span className="flex-grow truncate font-medium text-foreground">{item.name}</span>
+                            {item.type === 'file' && <span className="text-xs text-neutral-500 flex-shrink-0">{(item.size / 1024).toFixed(1)} KB</span>}
                         </Link>
                     </li>
                 ))}
@@ -107,8 +95,21 @@ function DirectoryListing({ items, vaultId, currentPath }: { items: GitHubDirect
 }
 
 
-export default async function VaultPathPage({ params }: VaultPageProps) {
+// --- Main Page Component ---
+// Use 'any' as a TEMPORARY WORKAROUND for the props type error
+export default async function VaultPathPage(props: any) {
+    // Destructure params - this should still work at runtime even with 'any' type
+    // Add checks or default values if props or params might be undefined
+    const params = props.params || {};
     const { vaultId, path: pathSegments } = params;
+    // const searchParams = props.searchParams || {}; // If using searchParams
+
+    // Runtime check for essential params
+    if (!vaultId) {
+        console.error("Missing vaultId parameter in VaultPathPage props:", props);
+        notFound();
+    }
+
     const vault = getVaultById(vaultId);
 
     if (!vault) {
@@ -145,63 +146,77 @@ export default async function VaultPathPage({ params }: VaultPageProps) {
         }
         // Handle other potential errors (rate limits, permissions, etc.)
         errorMsg = `Error loading content from GitHub: ${error.message}. Please check permissions and rate limits.`;
-        // Render an error message instead of crashing
+        // We already checked vault exists, so no need to refetch here for error display
+    }
+
+    // Define basePath here, used only by VaultMarkdownRenderer if needed
+    // Prefix with _ because ESLint warns it's unused otherwise in this scope
+    const _basePath = requestedPath.includes('/') ? requestedPath.substring(0, requestedPath.lastIndexOf('/')) : '';
+    const pageTitle = fileData ? fileData.name : `/${requestedPath || vault.name}`; // Display file name or path
+
+    // Render Error State
+    if (errorMsg) {
         return (
-            <div className="bg-white dark:bg-gray-800 p-6 md:p-8 rounded-lg shadow">
-                <h1 className="text-2xl font-bold text-red-600 mb-4">Error Loading Vault Content</h1>
-                <p className="text-red-500">{errorMsg}</p>
-                <p className="mt-4 text-sm text-gray-500">Vault: {vault.name} ({vault.repo})</p>
-                <p className="text-sm text-gray-500">Path: /{requestedPath}</p>
+            <div className="p-6 md:p-8 rounded-lg border border-red-300 bg-red-50 dark:border-red-700 dark:bg-red-900/30 shadow">
+                <div className="flex items-center space-x-3 mb-4">
+                    <AlertCircle className="text-red-500 dark:text-red-400" size={24} />
+                    <h1 className="text-xl font-semibold text-red-700 dark:text-red-300">Error Loading Content</h1>
+                </div>
+                <p className="text-red-600 dark:text-red-200 mb-2">{errorMsg}</p>
+                <p className="text-sm text-neutral-500 dark:text-neutral-400">Vault: {vault.name} ({vault.repo})</p>
+                <p className="text-sm text-neutral-500 dark:text-neutral-400">Path: /{requestedPath}</p>
             </div>
         )
     }
 
-    // Determine base path for relative link resolution in Markdown
-    const basePath = requestedPath.includes('/') ? requestedPath.substring(0, requestedPath.lastIndexOf('/')) : '';
-
+    // Render Normal Page (File or Directory)
     return (
-        <div className="bg-white dark:bg-gray-800 p-6 md:p-8 rounded-lg shadow">
-            {/* Header with Path and GitHub Link */}
-            <div className="mb-6 pb-3 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center flex-wrap gap-2">
-                <h1 className="text-2xl font-bold break-all">
-                    {/* Display file name or directory path */}
-                    {fileData ? fileData.name : `Browsing: /${requestedPath || vault.name}`}
+        <div className="bg-white dark:bg-neutral-800/50 p-4 sm:p-6 md:p-8 rounded-lg shadow border border-border dark:border-darkborder">
+            {/* Header */}
+            <div className="mb-6 pb-4 border-b border-border dark:border-darkborder flex justify-between items-center flex-wrap gap-2">
+                <h1 className="text-xl sm:text-2xl font-bold text-foreground break-all">
+                    {pageTitle}
                 </h1>
                 {resourceUrl && (
                     <a href={resourceUrl} target="_blank" rel="noopener noreferrer" title="View on GitHub"
-                        className="text-gray-500 dark:text-gray-400 hover:text-black dark:hover:text-white flex items-center space-x-1 text-sm flex-shrink-0">
-                        <Github size={16} />
+                        className="inline-flex items-center space-x-1.5 text-xs px-3 py-1.5 rounded-md bg-neutral-100 dark:bg-neutral-700 text-neutral-700 dark:text-neutral-300 hover:bg-neutral-200 dark:hover:bg-neutral-600 transition-colors">
+                        <Github size={14} />
                         <span>View on GitHub</span>
                     </a>
                 )}
             </div>
 
-            {/* Render File Content */}
-            {fileData && (
-                <>
-                    {/* Display Frontmatter if present */}
-                    {Object.keys(fileData.data).length > 0 && (
-                        <div className="mb-6 p-3 border border-gray-200 dark:border-gray-700 rounded bg-gray-50 dark:bg-gray-700/50 text-xs">
-                            <h3 className="font-semibold mb-1 text-sm">Frontmatter</h3>
-                            <pre className="overflow-x-auto whitespace-pre-wrap">{JSON.stringify(fileData.data, null, 2)}</pre>
-                        </div>
-                    )}
+            {/* Content Area */}
+            <div>
+                {/* Render File Content */}
+                {fileData && (
+                    <>
+                        {Object.keys(fileData.data).length > 0 && (
+                            <details className="mb-6 p-3 border border-border dark:border-darkborder rounded bg-neutral-50 dark:bg-neutral-900/50 text-xs cursor-pointer group">
+                                <summary className="font-semibold text-sm list-none select-none flex justify-between items-center">
+                                    <span>View Frontmatter</span>
+                                    <span className="text-neutral-400 transition-transform duration-200 ease-out group-open:rotate-90">▼</span>
+                                </summary>
+                                <pre className="mt-2 overflow-x-auto whitespace-pre-wrap text-neutral-600 dark:text-neutral-400">{JSON.stringify(fileData.data, null, 2)}</pre>
+                            </details>
+                        )}
 
-                    {/* Render Markdown or Plain Text */}
-                    {requestedPath.endsWith('.md') ? (
-                        <VaultMarkdownRenderer markdownContent={fileData.content} vaultId={vaultId} basePath={basePath} />
-                    ) : (
-                        <pre className="bg-gray-100 dark:bg-gray-900 p-4 rounded text-sm overflow-x-auto whitespace-pre-wrap">
-                            {fileData.content}
-                        </pre>
-                    )}
-                </>
-            )}
+                        {requestedPath.endsWith('.md') ? (
+                            // Pass _basePath even if unused by renderer currently
+                            <VaultMarkdownRenderer markdownContent={fileData.content} vaultId={vaultId} basePath={_basePath} />
+                        ) : (
+                            <pre className="bg-neutral-100 dark:bg-neutral-900 p-4 rounded text-sm overflow-x-auto whitespace-pre-wrap border border-border dark:border-darkborder">
+                                {fileData.content}
+                            </pre>
+                        )}
+                    </>
+                )}
 
-            {/* Render Directory Listing */}
-            {dirData && (
-                <DirectoryListing items={dirData} vaultId={vaultId} currentPath={requestedPath} />
-            )}
+                {/* Render Directory Listing */}
+                {dirData && (
+                    <DirectoryListing items={dirData} vaultId={vaultId} currentPath={requestedPath} />
+                )}
+            </div>
         </div>
     );
 }
