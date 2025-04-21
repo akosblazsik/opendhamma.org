@@ -1,6 +1,3 @@
-Okay, I've updated the Installation Guide to include the specific steps for generating the `AUTH_SECRET`, `GITHUB_ID`, and `GITHUB_SECRET` within the environment variable configuration sections.
-
-```markdown
 # Opendhamma Installation Guide
 
 This guide provides instructions for setting up the Opendhamma project for local development and configuring automatic deployment to Vercel.
@@ -203,4 +200,3 @@ Follow these steps to deploy the project to Vercel and enable automatic deployme
 *   **Styling:** Refine the UI and styling.
 *   **Error Handling & Loading States:** Implement more robust feedback.
 *   **Testing:** Add tests.
-```
