@@ -6,7 +6,7 @@
 - id: opendhamma-vault
   name: Opendhamma Core Vault
   # IMPORTANT: Replace with the actual repository path you want to use as default
-  repo: opendhamma/opendhamma-vault-example # Placeholder repo - CHANGE THIS
+  repo: opendhamma/tipitaka-vault # Placeholder repo - CHANGE THIS
   default: true
   topics:
     - buddhism
@@ -30,7 +30,6 @@
   languages:
     - en
   readonly: false
-
 # Add more canonical or community vaults here as needed
 # e.g.,
 # - id: suttacentral-data
