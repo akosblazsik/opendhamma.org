@@ -1,5 +1,6 @@
 // app/layout.tsx
 import type { Metadata, Viewport } from "next";
+import { Analytics } from '@vercel/analytics/next';
 import { GeistSans as Geist, GeistMono as Geist_Mono } from 'geist/font';
 import "./globals.css";
 import SessionProviderWrapper from "@/components/SessionProviderWrapper";
@@ -24,6 +25,7 @@ export default function RootLayout({
     <html lang="en" className={`${Geist.variable} ${Geist_Mono.variable} antialiased`}>
       <body> {/* Body gets base bg/color from globals.css */}
         <SessionProviderWrapper>{children}</SessionProviderWrapper>
+        <Analytics />
       </body>
     </html>
   );
