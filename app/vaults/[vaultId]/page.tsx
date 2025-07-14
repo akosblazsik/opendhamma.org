@@ -68,8 +68,10 @@ function DirectoryListing({ items, vaultId, vaultBasePath }: { items: GitHubDire
 
 
 // --- Main Vault Root Page Component ---
-export default async function VaultRootPage({ params }: { params: { vaultId: string } }) {
-    // Access params.vaultId directly to avoid Next.js warning
+//export default async function VaultRootPage({ params }: { params: { vaultId: string } }) {
+// Access params.vaultId directly to avoid Next.js warning
+export default async function VaultRootPage(props: any) {
+    const params = props.params || {};
     let vault;
     let dirData: GitHubDirectoryContent[] | null = null;
     let errorMsg: string | null = null;
