@@ -1,27 +1,23 @@
 // lib/github.ts
 import { Octokit } from "@octokit/rest";
-import { Buffer } from 'buffer'; // Node.js Buffer
-import matter from 'gray-matter'; // For parsing YAML frontmatter
+import { Buffer } from 'buffer';
+import matter from 'gray-matter';
 
-// Initialize Octokit
-// Use GITHUB_TOKEN from environment variables for authentication
 const octokit = new Octokit({
     auth: process.env.GITHUB_TOKEN,
     userAgent: 'OpendhammaApp/v0.1',
 });
 
-// Interface for parsed file content including frontmatter
 export interface GitHubFileContent {
     content: string;
     data: { [key: string]: any };
     sha: string;
     path: string;
     name: string;
-    html_url: string; // Expecting string
+    html_url: string;
     size: number;
 }
 
-// Interface for items listed in a directory
 export interface GitHubDirectoryContent {
     type: 'file' | 'dir';
     name: string;
@@ -29,11 +25,10 @@ export interface GitHubDirectoryContent {
     sha: string;
     size: number;
     url: string;
-    html_url: string; // Expecting string
+    html_url: string;
     download_url: string | null;
 }
 
-// Helper to parse 'owner/repo' string
 const parseRepoString = (repoString: string): { owner: string; repo: string } => {
     const parts = repoString.split('/');
     if (parts.length !== 2 || !parts[0] || !parts[1]) {
@@ -42,23 +37,47 @@ const parseRepoString = (repoString: string): { owner: string; repo: string } =>
     return { owner: parts[0], repo: parts[1] };
 };
 
-// Function to fetch and parse file content from GitHub
+/**
+ * Joins path segments cleanly, avoiding duplicate slashes.
+ * @param segments Path segments to join
+ * @returns Combined path string
+ */
+function joinPaths(...segments: (string | undefined | null)[]): string {
+    return segments
+        .filter(Boolean) // Remove undefined/null/empty segments
+        .map((segment, index) => {
+            // Remove leading slash from non-first segments and trailing slash from non-last segments
+            let cleanedSegment = segment as string;
+            if (index > 0) cleanedSegment = cleanedSegment.replace(/^\/+/, '');
+            if (index < segments.length - 1) cleanedSegment = cleanedSegment.replace(/\/+$/, '');
+            return cleanedSegment;
+        })
+        .join('/')
+        .replace(/\/+/g, '/'); // Replace multiple slashes with single
+}
+
+// Updated function to accept and use repoBasePath
 export async function getFileContent(
     repoString: string,
     filePath: string,
+    repoBasePath: string | undefined, // Added parameter
     ref?: string
 ): Promise<GitHubFileContent | null> {
     try {
         const { owner, repo } = parseRepoString(repoString);
+        // Construct the full path using the helper function
+        const fullPath = joinPaths(repoBasePath, filePath);
+        // console.log(`Fetching file: ${owner}/${repo}/${fullPath}` + (ref ? ` @ ${ref}` : ''));
+
         const response = await octokit.repos.getContent({
             owner,
             repo,
-            path: filePath,
+            path: fullPath, // Use the constructed full path
             ref: ref,
         });
 
         if (Array.isArray(response.data) || response.data.type !== 'file' || !response.data.content) {
-            console.warn(`Content at ${filePath} in ${repoString} is not a file or content is missing.`);
+            // console.warn(`Content at ${fullPath} in ${repoString} is not a file or content is missing.`);
             return null;
         }
 
@@ -69,9 +88,8 @@ export async function getFileContent(
             content: mainContent,
             data: frontmatterData,
             sha: response.data.sha,
-            path: response.data.path,
+            path: response.data.path, // Path relative to repo root as returned by API
             name: response.data.name,
-            // Ensure html_url is string, provide fallback if null/undefined
             html_url: response.data.html_url ?? '',
             size: response.data.size,
         };
@@ -80,42 +98,45 @@ export async function getFileContent(
         if (error.status === 404) {
             return null;
         }
-        console.error(`Error fetching file content from GitHub (${repoString}/${filePath}):`, error.status, error.message);
+        console.error(`Error fetching file content from GitHub (${repoString}/${joinPaths(repoBasePath, filePath)}):`, error.status, error.message);
         throw error;
     }
 }
 
 
-// Function to fetch directory contents from GitHub
+// Updated function to accept and use repoBasePath
 export async function getDirectoryContent(
     repoString: string,
     dirPath: string = '',
+    repoBasePath: string | undefined, // Added parameter
     ref?: string
 ): Promise<GitHubDirectoryContent[] | null> {
     try {
         const { owner, repo } = parseRepoString(repoString);
+        // Construct the full path using the helper function
+        const fullPath = joinPaths(repoBasePath, dirPath);
+        // console.log(`Fetching directory: ${owner}/${repo}/${fullPath}` + (ref ? ` @ ${ref}` : ''));
+
         const response = await octokit.repos.getContent({
             owner,
             repo,
-            path: dirPath,
+            path: fullPath, // Use the constructed full path
             ref: ref,
         });
 
         if (!Array.isArray(response.data)) {
-            console.warn(`Content at ${dirPath} in ${repoString} is not a directory.`);
+            // console.warn(`Content at ${fullPath} in ${repoString} is not a directory.`);
             return null;
         }
 
-        // Map to the GitHubDirectoryContent interface
         return response.data.map(item => ({
             type: item.type as 'file' | 'dir',
             name: item.name,
-            path: item.path,
+            path: item.path, // Path relative to repo root as returned by API
             sha: item.sha,
             size: item.size,
             url: item.url,
-            // **CORRECTION APPLIED HERE**: Ensure html_url is string for the interface
-            html_url: item.html_url ?? '', // Provide fallback if null/undefined
+            html_url: item.html_url ?? '',
             download_url: item.download_url || null,
         }));
 
@@ -123,7 +144,7 @@ export async function getDirectoryContent(
         if (error.status === 404) {
             return null;
         }
-        console.error(`Error fetching directory content from GitHub (${repoString}/${dirPath}):`, error.status, error.message);
+        console.error(`Error fetching directory content from GitHub (${repoString}/${joinPaths(repoBasePath, dirPath)}):`, error.status, error.message);
         throw error;
     }
 }

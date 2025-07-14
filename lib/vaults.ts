@@ -9,6 +9,7 @@ const VaultConfigSchema = z.object({
     id: z.string().min(1, "Vault ID cannot be empty"),
     name: z.string().min(1, "Vault name cannot be empty"),
     repo: z.string().regex(/^[a-zA-Z0-9_-]+\/[a-zA-Z0-9_.-]+$/, "Invalid repo format. Expected 'owner/repo'"),
+    basePath: z.string().optional(), // Optional base path within the repo (ADDED)
     default: z.boolean(),
     topics: z.array(z.string()).optional().default([]),
     languages: z.array(z.string()).optional().default([]),
@@ -22,10 +23,9 @@ const VaultRegistrySchema = z.array(VaultConfigSchema);
 export type VaultConfig = z.infer<typeof VaultConfigSchema>;
 
 // Construct the path to the vaults registry file
-// Using process.env allows overriding the path, defaults to 'data/vaults.yaml'
 const VAULT_REGISTRY_PATH = path.resolve(process.env.VAULT_REGISTRY_PATH || path.join(process.cwd(), 'data', 'vaults.yaml'));
 
-// Cache the loaded vaults to avoid repeated file reads and parsing
+// Cache the loaded vaults
 let cachedVaults: VaultConfig[] | null = null;
 let registryLoadError: Error | null = null;
 
@@ -35,54 +35,49 @@ let registryLoadError: Error | null = null;
  * @returns An array of validated VaultConfig objects.
  */
 export function getVaultRegistry(): VaultConfig[] {
-    // Return cached data if available
     if (cachedVaults) {
         return cachedVaults;
     }
-    // If there was a previous load error, throw it again
     if (registryLoadError) {
         throw registryLoadError;
     }
 
     try {
-        // console.log(`Attempting to load vault registry from: ${VAULT_REGISTRY_PATH}`);
         if (!fs.existsSync(VAULT_REGISTRY_PATH)) {
             throw new Error(`Vault registry file not found at ${VAULT_REGISTRY_PATH}`);
         }
 
         const fileContents = fs.readFileSync(VAULT_REGISTRY_PATH, 'utf8');
         const rawData = yaml.load(fileContents);
-
-        // Validate the loaded data against the Zod schema
         const validationResult = VaultRegistrySchema.safeParse(rawData);
 
         if (!validationResult.success) {
-            // Log detailed validation errors
             console.error("Vault registry validation failed:", validationResult.error.errors);
             throw new Error(`Invalid vault registry format in ${VAULT_REGISTRY_PATH}. Check console logs for details.`);
         }
 
         const vaults = validationResult.data;
-
-        // Check that there is exactly one default vault
         const defaultVaults = vaults.filter(vault => vault.default);
         if (defaultVaults.length !== 1) {
             console.warn(`Expected exactly one default vault, but found ${defaultVaults.length}. Count: ${defaultVaults.length}, IDs: ${defaultVaults.map(v => v.id).join(', ')}`);
-            // Depending on requirements, you might throw an error here or just log a warning
-            // throw new Error(`Configuration error: Must have exactly one default vault in ${VAULT_REGISTRY_PATH}. Found ${defaultVaults.length}.`);
+            // Optionally throw: throw new Error(`Config error: Must have exactly one default vault.`);
         }
 
-        // Cache the validated vaults
+        // Clean up basePath: remove leading/trailing slashes
+        vaults.forEach(vault => {
+            if (vault.basePath) {
+                vault.basePath = vault.basePath.replace(/^\/+|\/+$/g, ''); // Remove leading/trailing slashes
+                if (vault.basePath === '') delete vault.basePath; // Remove if empty after trimming
+            }
+        });
+
         cachedVaults = vaults;
-        // console.log(`Successfully loaded and validated ${vaults.length} vaults.`);
         return vaults;
 
     } catch (error: any) {
         console.error("Error loading or validating vault registry:", error.message);
-        registryLoadError = error; // Cache the error
-        // Depending on strictness, re-throw or return empty array
+        registryLoadError = error;
         throw new Error(`Failed to load vault registry: ${error.message}`);
-        // return []; // Or return empty array if the app should try to function without vaults
     }
 }
 
@@ -119,5 +114,4 @@ export function getVaultById(id: string): VaultConfig | undefined {
 export function clearVaultCache(): void {
     cachedVaults = null;
     registryLoadError = null;
-    // console.log("Vault registry cache cleared.");
 }

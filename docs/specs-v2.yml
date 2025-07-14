@@ -1,0 +1,278 @@
+# docs/specs.yml
+
+app:
+  name: Opendhamma
+  tagline: AI-enhanced wisdom architecture
+  purpose: >
+    Opendhamma is a next-generation, GitHub-native knowledge and translation system
+    for dharmic teachings. It blends canonical Buddhist texts, AI-assisted multilingual
+    tools, and community-curated content into a living ecosystem of insight.
+  vision: >
+    To modernize and actualize the transmission of Buddhist wisdom, making it globally
+    accessible, interactive, and personally meaningful — while maintaining philosophical
+    and linguistic rigor.
+
+architecture:
+  type: monorepo # Or single repo depending on actual structure
+  frontend: Next.js 15.3+ App Router # Using latest stable or RC as appropriate
+  backend: Serverless / API routes (Vercel + GitHub API)
+  deployment: Vercel (automatic)
+  github_native: true
+  content_storage: GitHub repositories
+  vault_registry: /data/vaults.yaml (within app repo)
+  default_vault: opendhamma-tipitaka # Adjusted default vault ID example
+  dynamic_routing: true
+  routes:
+    app_root: opendhamma.org/ # Assuming root is the app
+    public_tipitaka: opendhamma.org/tipitaka
+    user_settings: opendhamma.org/settings # Simplified path
+    translate: opendhamma.org/translate # Example top-level tools
+    curate: opendhamma.org/curate # Example top-level tools
+    ai_lab: opendhamma.org/ai-lab # Example top-level tools
+
+vaults:
+  default_vault_id: opendhamma-tipitaka # Match the default vault ID
+  storage_model: github_repository
+  content_format: markdown_with_yaml_frontmatter
+  allowed_filetypes: [.md, .yaml, .json] # Primarily Markdown focus
+  canonical_structure: # Example structure WITHIN a vault (relative to repo or basePath)
+    tipitaka: # This might be part of the basePath or repo root itself
+      sutta/sn/sn56-11:
+        - pali.md
+        - en/ai.md
+        - en/curated.md
+        - en/bhikkhu-bodhi.md
+        - notes.yaml
+  vault_registry:
+    file: /data/vaults.yaml # Relative to project root
+    schema: # Describes fields in vaults.yaml entries
+      - id: string # Unique identifier for the vault within the app
+        name: string # Display name
+        repo: string # GitHub "owner/repo" string
+        basePath: string | undefined # Optional path within the repo where vault content starts
+        default: boolean # Is this the default vault (e.g., for /tipitaka)? Only one true.
+        topics: [string] # Keywords for categorization
+        languages: [string] # Primary languages (ISO codes) present
+        readonly: boolean # If true, app should ideally disable contribution features for this vault
+  user_vaults: # Future consideration for users linking their own repos
+    model: github-native
+    registration: manual # Initially manual via vaults.yaml, later potentially UI-driven
+    metadata: vault.yaml # Potential standard for metadata within a user's vault root
+
+routes:
+  - path: /
+    description: Landing page, philosophy, call to explore
+    component: HomePage
+
+  - path: /tipitaka
+    description: Entry point for browsing the default Tipitaka vault.
+    component: TipitakaHomePage
+
+  - path: /tipitaka/[nikaya]/[sutta]
+    description: Canonical Tipitaka viewer using the default vault for a specific sutta
+    component: SuttaPage
+
+  - path: /vaults
+    description: Page listing all registered vaults.
+    component: VaultsIndexPage
+
+  - path: /vaults/[vaultId]
+    description: Dynamic loader for the root directory of any GitHub vault
+    component: VaultRootPage # New page to handle vault root
+
+  - path: /vaults/[vaultId]/[...path]
+    description: Dynamic loader/browser for any sub-path within a GitHub vault
+    component: VaultPathPage # Catch-all for sub-paths
+
+  - path: /admin # Simple admin section
+    description: Admin dashboard entry point (requires auth/role check)
+    component: AdminDashboardPage
+
+  - path: /admin/vaults
+    description: Vault manager UI — list, set default, link new vaults (admin only)
+    component: VaultAdminPage
+
+  - path: /settings # Renamed from /app/settings for simplicity
+    description: User settings and preferences management (requires auth)
+    component: SettingsPage
+
+  # Placeholders for future tool sections
+  # - path: /translate/[sutta]/[lang]
+  #   description: Translation editor UI (AI-assisted, human-refined) (placeholder)
+  #   component: TranslationEditor
+  # - path: /curate/[sutta]/[lang]
+  #   description: Curator review interface for translations (placeholder)
+  #   component: CuratorPanel
+  # - path: /ai-lab
+  #   description: AI-powered insight tools for dharmic analysis (placeholder)
+  #   component: AILabPage
+
+features:
+  canonical_text_browsing: true # Via /tipitaka routes
+  multilingual_translation: # Refers to DISPLAYING translations, not editing yet
+    ai_generated: display_possible # App can display AI translations if present in vault
+    human_curation: display_possible # App can display curated translations
+    side_by_side_view: planned # UI feature for comparison
+  vault_integration:
+    external_repos: true # Via vault registry
+    subdirectories_as_vault_root: true # Via basePath config
+    private_vault_support: planned # Requires OAuth scope adjustment and careful token handling
+    registry_discovery: true # Via vaults.yaml
+  markdown_rendering:
+    frontmatter_display: true
+    gfm_support: true # Tables, strikethrough, etc. via remark-gfm
+    wiki_links: basic # Basic [[link]] handling implemented, needs refinement
+    syntax_highlighting_code_blocks: basic # Basic implementation via react-markdown components
+    toc: planned # Table of Contents generation
+    footnotes: planned # Markdown footnote support
+    glossary_tooltips: planned # Future enhancement
+  note_system: # Features for future annotation/commenting system
+    inline_annotations: planned
+    scholar_notes: planned
+    comment_threads: planned
+  search_and_indexing: # Future search capabilities
+    nikaya_structure: basic # Browsing implemented
+    keyword_search: planned
+    tag-based_discovery: planned # Based on vault topics/frontmatter
+  versioning:
+    github_commit_history: native # Viewable on GitHub via links
+    change_log_display: planned # UI feature
+  admin_tools:
+    vault_registry_management: planned # UI in /admin/vaults (viewing only initially)
+    default_vault_selector: planned # UI in /admin/vaults
+  # --- NEW SECTION ---
+  collaboration_workflow:
+    github_native_model: true # Core principle is leveraging GitHub
+    primary_method: fork_and_pull_request # Standard GitHub flow
+    contribution_target: vault_repositories # Changes are made to content repos
+    # Phase 1: Simple Facilitation
+    edit_on_github_link:
+      enabled: planned # Target for initial implementation
+      description: >
+        Display a link on content pages (e.g., SuttaPage, VaultPage file view) that directs
+        authenticated users to the corresponding file on GitHub for editing. GitHub's
+        UI handles the fork/branch/commit/PR process.
+      requires_auth: true # User needs to be logged into GitHub
+    # Phase 2: In-App Facilitated Workflow
+    in_app_contribution:
+      enabled: planned (phase 2) # More complex future enhancement
+      description: >
+        Allow authenticated users (with sufficient OAuth scope) to initiate edits within the app.
+        The backend would handle forking, branching, committing, and creating Pull Requests
+        on the user's behalf using their OAuth token. Requires significant backend logic.
+      requires_auth: true
+      required_oauth_scope: repo # Needs 'repo' scope to modify user's fork and create PRs
+
+content_model:
+  structure: "vault based, path-routed, respects basePath" # Updated structure description
+  format: markdown_with_frontmatter
+  frontmatter_schema: # Recommended fields
+    id: string # Optional unique ID if needed beyond path
+    title: string
+    lang: string # ISO 639 code (e.g., en, pi)
+    source: string # Origin of the text/translation
+    translator: string
+    version: string
+    reviewed_by: [string] # List of curator usernames/IDs
+    status: draft | in_review | published
+  example: # Path relative to vault root (repo root or basePath)
+    file: tipitaka/sutta/sn/sn56-11/en/curated.md
+    content: |
+      ---
+      title: Dhammacakkappavattana Sutta (Setting the Wheel of Dhamma in Motion)
+      lang: en
+      translator: community # Or bhikkhu_bodhi, ai, etc.
+      source: Adapted from various sources
+      reviewed_by: [akosblazsik] # Example reviewer
+      version: 1.0
+      status: published
+      ---
+      Thus have I heard... (Markdown content follows)
+
+ai: # Planned AI features
+  provider: openai # Planned default
+  gpt_model: gpt-4 # Planned default model
+  fallback: claude or grok (future) # Potential alternatives
+  functions: # Planned AI capabilities
+    - translation_draft_generation
+    - line-by-line explanation
+    - glossary_annotation
+    - parallel_comparison
+    - prompt-based_insights
+  pipeline: # Conceptual flow for AI-assisted translation/curation
+    1: user initiates AI draft (e.g., in a dedicated /translate tool)
+    2: AI response shown in editor
+    3: user edits/refines the draft
+    4: user saves/commits refined version (potentially initiating PR flow)
+
+integrations:
+  github:
+    auth: GitHub OAuth (NextAuth.js v4) # Updated to reflect current state
+    api: GitHub Content API v3 (via Octokit)
+    rate_limited: yes # Important consideration for API usage
+  deployment:
+    provider: Vercel
+    preview_urls: true
+    environment_vars: # Required env vars
+      - GITHUB_TOKEN # PAT with repo/public_repo scope for content access
+      - GITHUB_ID # OAuth App ID for user login
+      - GITHUB_SECRET # OAuth App Secret for user login
+      - AUTH_SECRET # NextAuth secret key
+      - NEXTAUTH_URL # Deployment URL (must match GitHub callback)
+      - ADMIN_EMAILS # Optional: Comma-separated list for admin access
+  editor: # Current editor and future enhancements
+    current: CodeMirror (via @uiw/react-codemirror)
+    markdown_preview: ReactMarkdown
+    mdx_editor: planned
+    prose_mirror: planned
+
+user_roles: # Conceptual roles
+  guest:
+    can:
+      - browse public vaults
+      - read canonical texts & translations
+  contributor: # Requires GitHub login
+    can:
+      - use "Edit on GitHub" link (Phase 1)
+      - propose translations/edits (via standard GitHub PR flow)
+      - potentially use "In-App Contribution" feature (Phase 2, requires OAuth scope)
+  curator: # Higher privilege level (managed via GitHub repo permissions)
+    can:
+      - review contributions (merge PRs)
+      - approve/decline PRs
+      - potentially edit metadata directly (if allowed by vault permissions)
+  admin: # App-level admin (managed via ADMIN_EMAILS env var or future DB/auth integration)
+    can:
+      - access /admin section
+      - manage vault registry (planned UI)
+      - manage integrations (planned UI)
+      - manage users/roles (planned UI)
+
+auth:
+  provider: GitHub OAuth (NextAuth.js v4) # Updated
+  token_storage: JWT (managed by NextAuth.js)
+  vault_access:
+    public: default (requires GITHUB_TOKEN with public_repo scope for app)
+    private: planned (requires GITHUB_TOKEN with repo scope for app, OR user OAuth token logic)
+
+testing:
+  strategies:
+    - preview deploys via Vercel PRs
+    - linting (ESLint)
+    - type checking (TypeScript)
+    - markdown structure linter (planned)
+    - frontmatter validation (planned via Zod in lib/vaults.ts)
+
+deployment:
+  platform: Vercel
+  install_command: pnpm install # Explicitly set in Vercel settings
+  build_command: pnpm build # Explicitly set in Vercel settings
+  node_version: 20.x # Explicitly set in Vercel settings & package.json engines
+  triggers:
+    - git push to main branch (or configured production branch)
+  webhooks: planned (e.g., for external repo sync updates, cache invalidation)
+
+license:
+  type: MIT or CC-BY-SA 4.0 (for content, depends on vault)
+  repo_code: MIT # License for the application code itself
+  vault_content: Varies per vault (Check individual vault repos)

@@ -31,7 +31,7 @@ export default function HomePage() {
           <Link href="/tipitaka" className="px-8 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-semibold shadow-md transition duration-150 ease-in-out">
             Explore the Tipitaka
           </Link>
-          <a href="https://github.com/opendhamma" target="_blank" rel="noopener noreferrer" className="flex items-center px-8 py-3 bg-gray-700 hover:bg-gray-600 text-white rounded-lg font-semibold shadow-md transition duration-150 ease-in-out">
+          <a href="https://github.com/akosblazsik/opendhamma.org" target="_blank" rel="noopener noreferrer" className="flex items-center px-8 py-3 bg-gray-700 hover:bg-gray-600 text-white rounded-lg font-semibold shadow-md transition duration-150 ease-in-out">
             <Github size={20} className="mr-2" />
             View on GitHub
           </a>
