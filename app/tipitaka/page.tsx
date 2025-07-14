@@ -18,7 +18,8 @@ export default async function TipitakaHomePage() {
         } else {
             // Optional: Fetch top-level directories (Nikayas) from the default vault's 'tipitaka' path
             // Adjust 'tipitaka' if your vault structure is different (e.g., 'canon', 'texts')
-            nikayas = await getDirectoryContent(defaultVault.repo, 'tipitaka');
+            //nikayas = await getDirectoryContent(defaultVault.repo, 'tipitaka');
+            nikayas = await getDirectoryContent(defaultVault.repo, 'tipitaka', defaultVault.basePath);
             // console.log("Fetched Nikayas:", nikayas); // For debugging
         }
     } catch (error: any) {

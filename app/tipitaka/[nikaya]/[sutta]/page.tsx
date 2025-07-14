@@ -95,6 +95,7 @@ export default async function SuttaPage(props: any) {
     let defaultVault;
     let fileData: GitHubFileContent | null = null;
     let availableFiles: GitHubDirectoryContent[] | null = null;
+
     let loadedPath: string = '';
     let errorMsg: string | null = null;
 
@@ -108,7 +109,8 @@ export default async function SuttaPage(props: any) {
         const basePath = `tipitaka/sutta/${nikaya.toLowerCase()}/${sutta.toLowerCase()}`;
 
         // Fetch directory contents first to know available versions
-        availableFiles = await getDirectoryContent(defaultVault.repo, basePath);
+        //availableFiles = await getDirectoryContent(defaultVault.repo, basePath);
+        availableFiles = await getDirectoryContent(defaultVault.repo, basePath, defaultVault.basePath);
 
         if (availableFiles && availableFiles.length > 0) {
             // Try preferred files
@@ -122,7 +124,8 @@ export default async function SuttaPage(props: any) {
             ];
 
             for (const path of pathsToTry) {
-                const currentFileData = await getFileContent(defaultVault.repo, path);
+                //const currentFileData = await getFileContent(defaultVault.repo, path);
+                const currentFileData = await getFileContent(defaultVault.repo, path, defaultVault.basePath);
                 if (currentFileData) {
                     fileData = currentFileData;
                     loadedPath = path;
@@ -134,7 +137,8 @@ export default async function SuttaPage(props: any) {
         } else {
             // Try direct file path as fallback
             const directFilePath = `tipitaka/sutta/${nikaya.toLowerCase()}/${sutta.toLowerCase()}.md`;
-            fileData = await getFileContent(defaultVault.repo, directFilePath);
+            //fileData = await getFileContent(defaultVault.repo, directFilePath);
+            fileData = await getFileContent(defaultVault.repo, directFilePath, defaultVault.basePath);
             if (fileData) {
                 loadedPath = directFilePath;
             } else {
