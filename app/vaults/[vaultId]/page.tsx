@@ -156,7 +156,7 @@ export default async function VaultRootPage(props: any) {
 
             {/* Content Area - Directory Listing */}
             {dirData ? (
-                <DirectoryListing items={dirData} vaultId={params.vaultId} currentPath={vault.basePath ?? ''} vaultBasePath={vault.basePath} />
+                <DirectoryListing items={dirData} vaultId={params.vaultId} vaultBasePath={vault.basePath} />
             ) : (
                 // This case should ideally be covered by the error block above
                 <p className="text-neutral-500 italic">Could not load directory contents.</p>
